@@ -107,12 +107,12 @@ public class Config {
         return  settings.getLong("lastcalllogid", -1);
     }
 
-    public static void setLastCallLogId(Context context, long lastCallLogId)
+    public static boolean setLastCallLogId(Context context, long lastCallLogId)
     {
         SharedPreferences settings = getSharedPreferences(context);
         SharedPreferences.Editor editor = settings.edit();
 
         editor.putLong("lastcalllogid", lastCallLogId);
-        editor.apply();
+        return editor.commit();
     }
 }

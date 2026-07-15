@@ -12,7 +12,6 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -31,11 +30,11 @@ public class Sync {
         return settings.getBoolean("sync-enabled", false);
     }
 
-    public static void setEnabled(@NonNull final Context context, boolean enabled) {
+    public static boolean setEnabled(@NonNull final Context context, boolean enabled) {
         SharedPreferences settings = Config.getSharedPreferences(context);
         SharedPreferences.Editor edit = settings.edit();
         edit.putBoolean("sync-enabled", enabled);
-        edit.apply();
+        return edit.commit();
     }
 
     public  static long getLastCallLogId(Context context)
@@ -57,151 +56,176 @@ public class Sync {
         return id;
     }
 
-    public static void syncCallHistory(@NonNull final Context context, @NonNull final Config config, final long lastCallLogId, @NonNull final SyncResultRunner syncResultRunner) {
+    public static void syncCallHistory(@NonNull final Context context,
+                                       @NonNull final Config config,
+                                       final long lastCallLogId,
+                                       @NonNull final SyncResultRunner syncResultRunner) {
+        Handler mainHandler = new Handler(context.getMainLooper());
+        new Thread(() -> {
+            SyncResult result = syncCallHistoryBlocking(context, config, lastCallLogId);
+            mainHandler.post(() -> syncResultRunner.run(result));
+        }).start();
+    }
+
+    public static void testEndpoint(@NonNull final Context context,
+                                    @NonNull final Config config,
+                                    @NonNull final SyncResultRunner syncResultRunner) {
+        Handler mainHandler = new Handler(context.getMainLooper());
+        new Thread(() -> {
+            SyncResult result = testEndpointBlocking(config);
+            mainHandler.post(() -> syncResultRunner.run(result));
+        }).start();
+    }
+
+    static SyncResult testEndpointBlocking(@NonNull final Config config) {
+        config.additionalHeaders.put("Test-Run", "1");
+        return postPayload(config, new JSONArray(), 0L, 0);
+    }
+
+    static boolean isAllowedEndpoint(URL endpoint, boolean debugBuild) {
+        if (endpoint == null)
+            return false;
+        if ("https".equalsIgnoreCase(endpoint.getProtocol()))
+            return true;
+        return debugBuild && "http".equalsIgnoreCase(endpoint.getProtocol());
+    }
+
+    static boolean isSuccessfulHttpCode(int responseCode) {
+        return responseCode >= 200 && responseCode < 300;
+    }
+
+    public static SyncResult syncCallHistoryBlocking(@NonNull final Context context,
+                                                     @NonNull final Config config,
+                                                     final long lastCallLogId) {
         try {
+            if (!isAllowedEndpoint(config.endpoint, BuildConfig.DEBUG))
+                return new SyncResult("A secure HTTPS endpoint is required", 400);
 
             long lastId = lastCallLogId;
-            if(lastId == -1)
+            if (lastId == -1)
                 lastId = getLastCallLogId(context) - 1;
 
             Bundle queryArgs = new Bundle();
             queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "_id ASC");
-            queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "_id > " + lastId);
-
-            final Cursor managedCursor = context.getContentResolver().query(CallLog.Calls.CONTENT_URI, null, queryArgs, null);
-            final int idIndex = managedCursor.getColumnIndex("_id");
-            final int numberIndex = managedCursor.getColumnIndex(CallLog.Calls.NUMBER);
-            final int typeIndex = managedCursor.getColumnIndex(CallLog.Calls.TYPE);
-            final int dateIndex = managedCursor.getColumnIndex(CallLog.Calls.DATE);
-            final int durationIndex = managedCursor.getColumnIndex(CallLog.Calls.DURATION);
-
-            final boolean test = config.additionalHeaders.containsKey("Test-Run");
+            queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "_id > ?");
+            queryArgs.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
+                    new String[]{Long.toString(lastId)});
 
             final JSONArray json = new JSONArray();
-
             int count = 0;
-            while (managedCursor.moveToNext()) {
 
+            try (Cursor managedCursor = context.getContentResolver().query(
+                    CallLog.Calls.CONTENT_URI, null, queryArgs, null)) {
+                if (managedCursor == null)
+                    return new SyncResult(new IllegalStateException("Call log query returned no cursor"));
 
-                final long id = managedCursor.getLong(idIndex);
-                lastId = Math.max(lastId, id);
+                final int idIndex = managedCursor.getColumnIndexOrThrow("_id");
+                final int numberIndex = managedCursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER);
+                final int typeIndex = managedCursor.getColumnIndexOrThrow(CallLog.Calls.TYPE);
+                final int dateIndex = managedCursor.getColumnIndexOrThrow(CallLog.Calls.DATE);
+                final int durationIndex = managedCursor.getColumnIndexOrThrow(CallLog.Calls.DURATION);
 
-                final String number = managedCursor.getString(numberIndex);
-                final StringBuilder numberBuilder = new StringBuilder();
-                for(int i = 0; i < number.length(); i++)
-                {
-                    char c = number.charAt(i);
-                    if(c == '+')
-                    {
-                        numberBuilder.append("00");
+                while (managedCursor.moveToNext()) {
+                    final long id = managedCursor.getLong(idIndex);
+                    lastId = Math.max(lastId, id);
+
+                    final String number = managedCursor.getString(numberIndex);
+                    if (number == null)
+                        continue;
+
+                    final StringBuilder numberBuilder = new StringBuilder();
+                    for (int i = 0; i < number.length(); i++) {
+                        char c = number.charAt(i);
+                        if (c == '+')
+                            numberBuilder.append("00");
+                        else if ((c >= '0' && c <= '9') || c == '#' || c == '*')
+                            numberBuilder.append(c);
                     }
-                    else if ((c >= '0' && c <= '9') || c == '#' || c == '*')
-                    {
-                        numberBuilder.append(c);
-                    }
-                }
 
-                final int type = managedCursor.getInt(typeIndex);
-                final long date = managedCursor.getLong(dateIndex);
-                final long duration = managedCursor.getLong(durationIndex);
-                final String finalNumber = numberBuilder.toString();
-                if(finalNumber.length() == 0)
-                    continue;
+                    final String finalNumber = numberBuilder.toString();
+                    if (finalNumber.length() == 0)
+                        continue;
 
-                count++;
-                try {
                     JSONObject item = new JSONObject();
                     item.put("ID", id);
                     item.put("NUMBER", finalNumber);
-                    item.put("TYPE", type);
-                    item.put("DATE", date);
-                    item.put("DURATION", duration);
-
+                    item.put("TYPE", managedCursor.getInt(typeIndex));
+                    item.put("DATE", managedCursor.getLong(dateIndex));
+                    item.put("DURATION", managedCursor.getLong(durationIndex));
                     json.put(item);
-                } catch (JSONException ex) {
-                    Log.e("SYNC", "" + ex);
+                    count++;
                 }
             }
 
-            final Boolean more = managedCursor.moveToNext();
-            managedCursor.close();
+            if (count == 0)
+                return new SyncResult(lastId);
 
-            if (count == 0 && !test)
-            {
-                syncResultRunner.run(new SyncResult());
-                return;
-            }
+            if (!isEnabled(context))
+                return new SyncResult("Sync disabled before upload", 409);
 
-            final long LastId = lastId;
-            final int Count = count;
-
-            Thread t = new Thread(() -> {
-
-                Handler mainHandler = new Handler(context.getMainLooper());
-
-                try {
-                    byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
-                    URL url = config.endpoint;
-
-                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("POST");
-                    connection.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
-                    connection.setRequestProperty("Content-Length", Long.toString(data.length));
-                    connection.setRequestProperty("Accept", "application/json");
-                    connection.setRequestProperty("Device-Name", config.deviceName);
-                    connection.setRequestProperty("Device-Token", config.deviceToken);
-                    connection.setRequestProperty("Device-Number", config.deviceNumber);
-
-                    for(Map.Entry<String, String> entry : config.additionalHeaders.entrySet())
-                        connection.setRequestProperty(entry.getKey(), entry.getValue());
-
-                    connection.setInstanceFollowRedirects(true);
-                    connection.setDoOutput(true);
-                    connection.setConnectTimeout(25000);
-                    connection.setReadTimeout(25000);
-                    connection.connect();
-
-                    OutputStream outputStream = connection.getOutputStream();
-                    outputStream.write(data);
-                    outputStream.flush();
-
-                    int responseCode = connection.getResponseCode();
-
-                    InputStream responseStream;
-                    if (responseCode >= 100 && responseCode <= 399)
-                        responseStream = connection.getInputStream();
-                    else
-                        responseStream = connection.getErrorStream();
-
-                    BufferedReader responseReader = new BufferedReader(new InputStreamReader(responseStream));
-
-                    StringBuilder response = new StringBuilder();
-                    String responseLine;
-                    while ((responseLine = responseReader.readLine()) != null) {
-                        response.append(responseLine);
-                    }
-
-                    if (responseCode == 200) {
-                        mainHandler.post(() -> syncResultRunner.run(new SyncResult(response.toString(), LastId, more, Count)));
-                        //syncResultRunner.run(new SyncResult(response.toString(), LastId, more, Count));
-                    } else {
-                        mainHandler.post(() -> syncResultRunner.run(new SyncResult(response.toString(), responseCode)));
-                        //syncResultRunner.run(new SyncResult(response.toString(), responseCode));
-                    }
-                } catch (Exception ex) {
-                    Log.e("SYNC", "" + ex);
-                    mainHandler.post(() -> syncResultRunner.run(new SyncResult(ex)));
-                    //syncResultRunner.run(new SyncResult(ex));
-                }
-            });
-
-            t.start();
-            t.join();
-        }
-        catch (Exception ex)
-        {
+            return postPayload(config, json, lastId, count);
+        } catch (Exception ex) {
             Log.e("SYNC", "" + ex);
-            syncResultRunner.run(new SyncResult(ex));
+            return new SyncResult(ex);
+        }
+    }
+
+    private static SyncResult postPayload(@NonNull final Config config,
+                                          @NonNull final JSONArray json,
+                                          final long lastId,
+                                          final int count) {
+        HttpURLConnection connection = null;
+        try {
+            if (!isAllowedEndpoint(config.endpoint, BuildConfig.DEBUG))
+                return new SyncResult("A secure HTTPS endpoint is required", 400);
+
+            byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
+            connection = (HttpURLConnection) config.endpoint.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+            connection.setRequestProperty("Content-Length", Long.toString(data.length));
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Device-Name", config.deviceName);
+            connection.setRequestProperty("Device-Token", config.deviceToken);
+            connection.setRequestProperty("Device-Number", config.deviceNumber);
+
+            for (Map.Entry<String, String> entry : config.additionalHeaders.entrySet())
+                connection.setRequestProperty(entry.getKey(), entry.getValue());
+
+            connection.setInstanceFollowRedirects(true);
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(25000);
+            connection.setReadTimeout(25000);
+
+            try (OutputStream outputStream = connection.getOutputStream()) {
+                outputStream.write(data);
+            }
+
+            int responseCode = connection.getResponseCode();
+            InputStream responseStream = responseCode >= 100 && responseCode <= 399
+                    ? connection.getInputStream()
+                    : connection.getErrorStream();
+
+            StringBuilder response = new StringBuilder();
+            if (responseStream != null) {
+                try (BufferedReader responseReader = new BufferedReader(
+                        new InputStreamReader(responseStream, StandardCharsets.UTF_8))) {
+                    String responseLine;
+                    while ((responseLine = responseReader.readLine()) != null)
+                        response.append(responseLine);
+                }
+            }
+
+            if (isSuccessfulHttpCode(responseCode))
+                return new SyncResult(response.toString(), lastId, false, count);
+
+            return new SyncResult(response.toString(), responseCode);
+        } catch (Exception ex) {
+            Log.e("SYNC", "" + ex);
+            return new SyncResult(ex);
+        } finally {
+            if (connection != null)
+                connection.disconnect();
         }
     }
 }

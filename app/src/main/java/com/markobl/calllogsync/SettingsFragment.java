@@ -140,16 +140,13 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
         {
             try {
                 final URL url = new URL((String)newValue);
-                String protocol = url.getProtocol();
 
-                if(protocol.equals("http") || protocol.equals("https")) {
+                if(Sync.isAllowedEndpoint(url, BuildConfig.DEBUG)) {
 
                     Toast.makeText(getContext(), getResources().getString(R.string.testing_endpoint), Toast.LENGTH_SHORT).show();
 
                     config.endpoint = url;
-                    config.additionalHeaders.put("Test-Run", "1");
-
-                    Sync.syncCallHistory(getActivity(), config, 0, syncResult -> {
+                    Sync.testEndpoint(getActivity(), config, syncResult -> {
                         AlertDialog.Builder alertDialog = new AlertDialog.Builder(getActivity());
                         if(syncResult.syncResultType == SyncResultType.SUCCESS)
                         {
@@ -191,12 +188,12 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
             }
 
             boolean enabled = (boolean)newValue;
-            Sync.setEnabled(getActivity(), enabled);
-
-            if(enabled)
-            {
-                SyncWorker.syncNow(getActivity());
+            if (!Sync.setEnabled(getActivity(), enabled)) {
+                Log.e("SETTINGS", "Could not persist sync state");
+                Toast.makeText(getContext(), R.string.sync_alert_failed, Toast.LENGTH_SHORT).show();
+                return false;
             }
+            SyncWorker.reconcile(getActivity());
 
             return true;
         }
@@ -241,8 +238,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
 
             Toast.makeText(getContext(), getResources().getString(R.string.testing_endpoint), Toast.LENGTH_SHORT).show();
 
-            config.additionalHeaders.put("Test-Run", "1");
-            Sync.syncCallHistory(getActivity(), config, 0, syncResult -> {
+            Sync.testEndpoint(getActivity(), config, syncResult -> {
                 AlertDialog.Builder alertDialog = new AlertDialog.Builder(getActivity());
                 if(syncResult.syncResultType == SyncResultType.SUCCESS)
                 {
@@ -278,7 +274,12 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
                 resetDialog.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
 
-                        Sync.setEnabled(getActivity(), false);
+                        if (!Sync.setEnabled(getActivity(), false)) {
+                            Log.e("SETTINGS", "Could not persist disabled sync state");
+                            Toast.makeText(getContext(), R.string.sync_alert_failed, Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        SyncWorker.reconcile(getActivity());
                         Config.reset(getActivity());
                         LogItem.reset(getActivity());
 

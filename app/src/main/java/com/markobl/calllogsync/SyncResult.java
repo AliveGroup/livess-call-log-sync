@@ -51,11 +51,16 @@ public class SyncResult {
 
     public SyncResult()
     {
+        this(-1L);
+    }
+
+    public SyncResult(long lastCallLogId)
+    {
         syncResultType = SyncResultType.NOTHING_TO_SYNC;
         responseMessage = null;
         responseCode = 0;
         exception = null;
-        lastCallLogId = -1L;
+        this.lastCallLogId = lastCallLogId;
         more = false;
         count = 0;
     }
