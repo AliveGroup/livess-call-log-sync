@@ -34,6 +34,7 @@ jobs:
           repository: Quartzo-AI/quartzo-cli
           ref: main
           path: .quartzo-cli
+          ssh-key: ${{ secrets.QUARTZO_CLI_DEPLOY_KEY }}
 
       - name: Set up Java 11
         uses: actions/setup-java@v4
@@ -60,9 +61,10 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.LIVESS_ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.LIVESS_ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.LIVESS_ANDROID_KEY_PASSWORD }}
+          QUARTZO_CLI_DEPLOY_KEY: ${{ secrets.QUARTZO_CLI_DEPLOY_KEY }}
         run: |
           set -euo pipefail
-          for value in ROLE_ARN BUCKET DISTRIBUTION_ID BASE_URL KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+          for value in ROLE_ARN BUCKET DISTRIBUTION_ID BASE_URL KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD QUARTZO_CLI_DEPLOY_KEY; do
             if [ -z "${!value}" ]; then
               echo "::error::Missing required Android release variable or secret: $value"
               exit 1
