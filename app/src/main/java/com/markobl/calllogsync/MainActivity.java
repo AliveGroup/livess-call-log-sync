@@ -59,7 +59,10 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
 
         if(item.getItemId() == R.id.About) {
-            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/MarkoBL/AndroidCallLogSync"));
+            Intent browserIntent = new Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/AliveGroup/livess-call-log-sync")
+            );
             startActivity(browserIntent);
             return true;
         }

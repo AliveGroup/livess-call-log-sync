@@ -2,17 +2,39 @@ plugins {
     id 'com.android.application'
 }
 
+def releaseKeystoreFile = System.getenv("LIVESS_ANDROID_KEYSTORE_FILE")
+def releaseKeystorePassword = System.getenv("LIVESS_ANDROID_KEYSTORE_PASSWORD")
+def releaseKeyAlias = System.getenv("LIVESS_ANDROID_KEY_ALIAS")
+def releaseKeyPassword = System.getenv("LIVESS_ANDROID_KEY_PASSWORD")
+def hasReleaseSigning = [
+        releaseKeystoreFile,
+        releaseKeystorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword
+].every { it != null && !it.trim().isEmpty() }
+
 android {
     compileSdk 32
 
     defaultConfig {
-        applicationId "com.markobl.calllogsync"
+        applicationId "br.com.livess.callsync"
         minSdk 26
         targetSdk 32
-        versionCode 10
-        versionName "1.0.7"
+        versionCode 1
+        versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseKeystoreFile)
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -22,6 +44,9 @@ android {
         }
         release {
             minifyEnabled false
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -32,6 +57,25 @@ android {
     buildFeatures {
         viewBinding true
     }
+}
+
+tasks.register("verifyReleaseSigning") {
+    doLast {
+        if (!hasReleaseSigning) {
+            throw new GradleException(
+                    "Release signing is not configured. Set LIVESS_ANDROID_KEYSTORE_FILE, " +
+                            "LIVESS_ANDROID_KEYSTORE_PASSWORD, LIVESS_ANDROID_KEY_ALIAS and " +
+                            "LIVESS_ANDROID_KEY_PASSWORD."
+            )
+        }
+        if (!file(releaseKeystoreFile).isFile()) {
+            throw new GradleException("Release keystore file does not exist.")
+        }
+    }
+}
+
+tasks.matching { it.name == "packageRelease" }.configureEach {
+    dependsOn tasks.named("verifyReleaseSigning")
 }
 
 dependencies {

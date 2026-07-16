@@ -1,6 +1,40 @@
-# Android Call Log Sync
+# Livess Sync
+
+Livess Sync is the AliveGroup-maintained Android call tracking client used by
+Livess. It is based on
+[MarkoBL/AndroidCallLogSync](https://github.com/MarkoBL/AndroidCallLogSync) and
+remains licensed under GPL-3.0.
+
+Official builds use the Android application id `br.com.livess.callsync`. This
+identity is intentionally different from the upstream application because the
+upstream signing key is not controlled by AliveGroup.
 
 With this android app, you can sync your call log with a remote endpoint. 
+
+## Official release signing
+
+Release APKs must be signed with the AliveGroup-managed key. The key and its
+passwords are injected at build time and must never be committed.
+
+Required environment variables:
+
+```text
+LIVESS_ANDROID_KEYSTORE_FILE
+LIVESS_ANDROID_KEYSTORE_PASSWORD
+LIVESS_ANDROID_KEY_ALIAS
+LIVESS_ANDROID_KEY_PASSWORD
+```
+
+Build and verify:
+
+```powershell
+gradlew.bat -p . testDebugUnitTest lintDebug verifyReleaseSigning assembleRelease
+apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+```
+
+The release certificate SHA-256 fingerprint is the stable public identifier
+used by the release pipeline. Secret key material stays in Infisical and is
+injected through the Quartzo operational boundary.
 
 # Build your own Remote Endpoint
 

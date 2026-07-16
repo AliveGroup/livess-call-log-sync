@@ -44,4 +44,22 @@ public class SyncPersistenceTest {
         assertTrue(Config.setLastCallLogId(context, 42L));
         assertEquals(42L, Config.getLastCallLogId(context));
     }
+
+    @Test
+    public void newInstallUsesLivessProductionEndpoint() {
+        Config config = Config.newConfig(context);
+
+        assertEquals(Config.DEFAULT_ENDPOINT, config.endpoint.toString());
+    }
+
+    @Test
+    public void existingInstallWithoutEndpointIsMigrated() {
+        Config config = Config.newConfig(context);
+        config.endpoint = null;
+        assertTrue(config.save(context));
+
+        Config loaded = Config.load(context);
+
+        assertEquals(Config.DEFAULT_ENDPOINT, loaded.endpoint.toString());
+    }
 }

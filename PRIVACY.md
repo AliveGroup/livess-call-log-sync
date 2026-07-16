@@ -1,7 +1,23 @@
-# Privacy Policy
+# Privacy Notice
 
-We do not collect or processes any personal data nor do we send anything to third party services. 
+Livess Sync reads the Android call log after the device user grants permission.
+It sends call identifiers, telephone numbers, call direction/type, timestamps,
+duration, device name, optional device number and a device authentication token
+to the configured Livess endpoint.
 
-The app only sends your android call log to the remote endpoint that you specify. The call log is not used in any other way nor is it sent to any third party services.
+This information is used to register business call activity in Livess and
+associate it with the authorized consultant account. The app does not sell the
+information or send it to advertising services.
 
-The source code of the app is available for free and the behaviour can be checked by reading the source code at: https://github.com/MarkoBL/AndroidCallLogSync/
+Access to call-log data, retention, account permissions and deletion are
+managed by the organization operating the configured Livess environment. A
+device administrator can stop transmission by disabling Sync or uninstalling
+the app.
+
+The maintained source code is available at:
+https://github.com/AliveGroup/livess-call-log-sync
+
+This application is based on:
+https://github.com/MarkoBL/AndroidCallLogSync
+
+Both the application and its modifications are distributed under GPL-3.0.

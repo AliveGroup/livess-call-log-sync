@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0 - Livess official line
+- Adopted the AliveGroup-owned application id `br.com.livess.callsync`
+- Added durable automatic Sync reconciliation after boot and app updates
+- Fixed Worker completion, retry handling and call-log cursor persistence
+- Added isolated debug builds for device UAT
+- Added governed release signing through injected secrets
+- Updated Livess branding, source attribution and privacy disclosure
+
 ## 1.0.5
 - New option to lock the settings
 - Warning if app hibernation is active
