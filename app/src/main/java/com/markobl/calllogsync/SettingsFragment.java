@@ -141,7 +141,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
             try {
                 final URL url = new URL((String)newValue);
 
-                if(Sync.isAllowedEndpoint(url, BuildConfig.DEBUG)) {
+                if(Sync.isAllowedEndpoint(url, BuildConfig.ALLOW_INSECURE_ENDPOINTS)) {
 
                     Toast.makeText(getContext(), getResources().getString(R.string.testing_endpoint), Toast.LENGTH_SHORT).show();
 
@@ -188,6 +188,19 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
             }
 
             boolean enabled = (boolean)newValue;
+            if (enabled && Config.getLastCallLogId(getActivity()) == -1) {
+                try {
+                    if (!Config.setLastCallLogId(getActivity(), Sync.getLastCallLogId(getActivity()))) {
+                        Log.e("SETTINGS", "Could not initialize call log cursor");
+                        Toast.makeText(getContext(), R.string.sync_alert_failed, Toast.LENGTH_SHORT).show();
+                        return false;
+                    }
+                } catch (Exception ex) {
+                    Log.e("SETTINGS", "Could not read current call log cursor", ex);
+                    Toast.makeText(getContext(), R.string.sync_alert_failed, Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+            }
             if (!Sync.setEnabled(getActivity(), enabled)) {
                 Log.e("SETTINGS", "Could not persist sync state");
                 Toast.makeText(getContext(), R.string.sync_alert_failed, Toast.LENGTH_SHORT).show();

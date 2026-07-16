@@ -1,5 +1,7 @@
 param(
-    [string]$ProjectDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    [string]$ProjectDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    [ValidateSet("release", "pilot")]
+    [string]$Variant = "release"
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,6 +34,8 @@ try {
 
     $env:LIVESS_ANDROID_KEYSTORE_FILE = $temporaryKeystore
 
+    $variantTitle = (Get-Culture).TextInfo.ToTitleCase($Variant)
+
     & (Join-Path $ProjectDir "gradlew.bat") `
         -p $ProjectDir `
         --no-daemon `
@@ -39,7 +43,7 @@ try {
         lintDebug `
         lintRelease `
         verifyReleaseSigning `
-        assembleRelease
+        "assemble$variantTitle"
 
     if ($LASTEXITCODE -ne 0) {
         throw "Official release build failed."

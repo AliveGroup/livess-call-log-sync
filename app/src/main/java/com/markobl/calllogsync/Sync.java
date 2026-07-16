@@ -82,12 +82,12 @@ public class Sync {
         return postPayload(config, new JSONArray(), 0L, 0);
     }
 
-    static boolean isAllowedEndpoint(URL endpoint, boolean debugBuild) {
+    static boolean isAllowedEndpoint(URL endpoint, boolean allowInsecureEndpoints) {
         if (endpoint == null)
             return false;
         if ("https".equalsIgnoreCase(endpoint.getProtocol()))
             return true;
-        return debugBuild && "http".equalsIgnoreCase(endpoint.getProtocol());
+        return allowInsecureEndpoints && "http".equalsIgnoreCase(endpoint.getProtocol());
     }
 
     static boolean isSuccessfulHttpCode(int responseCode) {
@@ -98,7 +98,7 @@ public class Sync {
                                                      @NonNull final Config config,
                                                      final long lastCallLogId) {
         try {
-            if (!isAllowedEndpoint(config.endpoint, BuildConfig.DEBUG))
+            if (!isAllowedEndpoint(config.endpoint, BuildConfig.ALLOW_INSECURE_ENDPOINTS))
                 return new SyncResult("A secure HTTPS endpoint is required", 400);
 
             long lastId = lastCallLogId;
@@ -176,7 +176,7 @@ public class Sync {
                                           final int count) {
         HttpURLConnection connection = null;
         try {
-            if (!isAllowedEndpoint(config.endpoint, BuildConfig.DEBUG))
+            if (!isAllowedEndpoint(config.endpoint, BuildConfig.ALLOW_INSECURE_ENDPOINTS))
                 return new SyncResult("A secure HTTPS endpoint is required", 400);
 
             byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
