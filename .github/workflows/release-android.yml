@@ -107,11 +107,24 @@ jobs:
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
 
           PACKAGE_LINE="$("$BUILD_TOOLS/aapt" dump badging "$APK" | sed -n '1p')"
-          [[ "$PACKAGE_LINE" == *"name='br.com.livess.callsync'"* ]]
-          [[ "$PACKAGE_LINE" == *"versionName='${RELEASE_VERSION}'"* ]]
+          if [[ "$PACKAGE_LINE" != *"name='br.com.livess.callsync'"* ]]; then
+            echo "::error::Signed APK package mismatch: $PACKAGE_LINE"
+            exit 1
+          fi
+          if [[ "$PACKAGE_LINE" != *"versionName='${RELEASE_VERSION}'"* ]]; then
+            echo "::error::Signed APK version mismatch: $PACKAGE_LINE"
+            exit 1
+          fi
           "$BUILD_TOOLS/apksigner" verify "$APK"
           ACTUAL_CERT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr '[:upper:]' '[:lower:]')"
-          [[ "$ACTUAL_CERT" == "$RELEASE_CERT_SHA256" ]]
+          if [[ -z "$ACTUAL_CERT" ]]; then
+            echo "::error::apksigner returned no SHA-256 certificate digest"
+            exit 1
+          fi
+          if [[ "$ACTUAL_CERT" != "$RELEASE_CERT_SHA256" ]]; then
+            echo "::error::Signed APK certificate mismatch: expected=$RELEASE_CERT_SHA256 actual=$ACTUAL_CERT"
+            exit 1
+          fi
 
           SHA256="$(sha256sum "$APK" | awk '{print $1}')"
           printf '%s  %s\n' "$SHA256" "$RELEASE_FILE" > "$RUNNER_TEMP/${RELEASE_FILE}.sha256"
