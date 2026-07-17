@@ -24,16 +24,38 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class Sync {
+    private static final String SYNC_ENABLED_KEY = "sync-enabled";
+    private static final String LAST_CALL_LOG_ID_KEY = "lastcalllogid";
 
     public static boolean isEnabled(@NonNull final Context context) {
         SharedPreferences settings = Config.getSharedPreferences(context);
-        return settings.getBoolean("sync-enabled", false);
+        if (!settings.contains(SYNC_ENABLED_KEY)) {
+            return enableByDefault(context, settings);
+        }
+        return settings.getBoolean(SYNC_ENABLED_KEY, false);
+    }
+
+    private static boolean enableByDefault(@NonNull final Context context, SharedPreferences settings) {
+        SharedPreferences.Editor edit = settings.edit();
+        edit.putBoolean(SYNC_ENABLED_KEY, true);
+
+        if (!settings.contains(LAST_CALL_LOG_ID_KEY)) {
+            try {
+                edit.putLong(LAST_CALL_LOG_ID_KEY, getLastCallLogId(context));
+            }
+            catch (Exception ex) {
+                Log.e("SYNC", "Could not initialize call log cursor; starting from -1", ex);
+                edit.putLong(LAST_CALL_LOG_ID_KEY, -1);
+            }
+        }
+
+        return edit.commit();
     }
 
     public static boolean setEnabled(@NonNull final Context context, boolean enabled) {
         SharedPreferences settings = Config.getSharedPreferences(context);
         SharedPreferences.Editor edit = settings.edit();
-        edit.putBoolean("sync-enabled", enabled);
+        edit.putBoolean(SYNC_ENABLED_KEY, enabled);
         return edit.commit();
     }
 
