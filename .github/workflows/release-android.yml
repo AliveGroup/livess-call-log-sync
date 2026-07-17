@@ -28,27 +28,12 @@ jobs:
       - name: Checkout accepted Android source
         uses: actions/checkout@v4
 
-      - name: Checkout accepted Quartzo publisher
-        uses: actions/checkout@v4
-        with:
-          repository: Quartzo-AI/quartzo-cli
-          ref: main
-          path: .quartzo-cli
-          ssh-key: ${{ secrets.QUARTZO_CLI_DEPLOY_KEY }}
-
       - name: Set up Java 11
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "11"
           cache: gradle
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: .quartzo-cli/package-lock.json
 
       - name: Validate release configuration
         shell: bash
@@ -61,10 +46,9 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.LIVESS_ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.LIVESS_ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.LIVESS_ANDROID_KEY_PASSWORD }}
-          QUARTZO_CLI_DEPLOY_KEY: ${{ secrets.QUARTZO_CLI_DEPLOY_KEY }}
         run: |
           set -euo pipefail
-          for value in ROLE_ARN BUCKET DISTRIBUTION_ID BASE_URL KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD QUARTZO_CLI_DEPLOY_KEY; do
+          for value in ROLE_ARN BUCKET DISTRIBUTION_ID BASE_URL KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!value}" ]; then
               echo "::error::Missing required Android release variable or secret: $value"
               exit 1
@@ -99,12 +83,6 @@ jobs:
             verifyReleaseSigning \
             assembleRelease
 
-      - name: Build Quartzo publisher
-        working-directory: .quartzo-cli
-        run: |
-          npm ci
-          npm run build
-
       - name: Configure temporary AWS publisher credentials
         uses: aws-actions/configure-aws-credentials@v6.1.0
         with:
@@ -115,19 +93,64 @@ jobs:
 
       - name: Publish immutable APK and latest manifest
         shell: bash
+        env:
+          BUCKET: ${{ vars.AWS_ANDROID_RELEASE_BUCKET }}
+          DISTRIBUTION_ID: ${{ vars.AWS_ANDROID_RELEASE_DISTRIBUTION_ID }}
+          BASE_URL: ${{ vars.AWS_ANDROID_RELEASE_BASE_URL }}
         run: |
           set -euo pipefail
-          node .quartzo-cli/dist/cli.js releases android publish \
-            --apk app/build/outputs/apk/release/app-release.apk \
-            --version "$RELEASE_VERSION" \
-            --source-sha "$GITHUB_SHA" \
-            --base-url "${{ vars.AWS_ANDROID_RELEASE_BASE_URL }}" \
-            --cert-sha256 "$RELEASE_CERT_SHA256" \
-            --bucket "${{ vars.AWS_ANDROID_RELEASE_BUCKET }}" \
-            --distribution "${{ vars.AWS_ANDROID_RELEASE_DISTRIBUTION_ID }}" \
-            --manifest latest.json \
-            --region "$AWS_REGION" \
-            --apply
+          APK="app/build/outputs/apk/release/app-release.apk"
+          RELEASE_FILE="livess-call-log-sync-${RELEASE_VERSION}.apk"
+          ARTIFACT_KEY="releases/${RELEASE_VERSION}/${RELEASE_FILE}"
+          CHECKSUM_KEY="${ARTIFACT_KEY}.sha256"
+          APK_URL="${BASE_URL}/${ARTIFACT_KEY}"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+
+          PACKAGE_LINE="$("$BUILD_TOOLS/aapt" dump badging "$APK" | head -1)"
+          [[ "$PACKAGE_LINE" == *"name='br.com.livess.callsync'"* ]]
+          [[ "$PACKAGE_LINE" == *"versionName='${RELEASE_VERSION}'"* ]]
+          "$BUILD_TOOLS/apksigner" verify "$APK"
+          ACTUAL_CERT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr '[:upper:]' '[:lower:]')"
+          [[ "$ACTUAL_CERT" == "$RELEASE_CERT_SHA256" ]]
+
+          SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          printf '%s  %s\n' "$SHA256" "$RELEASE_FILE" > "$RUNNER_TEMP/${RELEASE_FILE}.sha256"
+          PUBLISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          jq -n \
+            --arg appId "livess-call-log-sync" \
+            --arg version "$RELEASE_VERSION" \
+            --arg sourceSha "$GITHUB_SHA" \
+            --arg apkUrl "$APK_URL" \
+            --arg sha256 "$SHA256" \
+            --arg publishedAt "$PUBLISHED_AT" \
+            '{appId:$appId,version:$version,sourceSha:$sourceSha,apkUrl:$apkUrl,sha256:$sha256,publishedAt:$publishedAt}' \
+            > "$RUNNER_TEMP/latest.json"
+
+          aws s3api put-object \
+            --region "$AWS_REGION" --bucket "$BUCKET" --key "$ARTIFACT_KEY" --body "$APK" \
+            --content-type application/vnd.android.package-archive \
+            --cache-control public,max-age=31536000,immutable --if-none-match '*'
+          aws s3api put-object \
+            --region "$AWS_REGION" --bucket "$BUCKET" --key "$CHECKSUM_KEY" --body "$RUNNER_TEMP/${RELEASE_FILE}.sha256" \
+            --content-type text/plain --cache-control public,max-age=31536000,immutable --if-none-match '*'
+
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --location "$APK_URL" --output "$RUNNER_TEMP/public.apk"; then break; fi
+            sleep 5
+          done
+          echo "${SHA256}  $RUNNER_TEMP/public.apk" | sha256sum --check
+
+          aws s3 cp "$RUNNER_TEMP/latest.json" "s3://${BUCKET}/latest.json" \
+            --region "$AWS_REGION" --content-type application/json --cache-control no-cache,max-age=0 --only-show-errors
+          INVALIDATION_ID="$(aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" --paths /latest.json \
+            --query 'Invalidation.Id' --output text)"
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION_ID" --id "$INVALIDATION_ID"
+          curl --fail --silent --show-error --location "${BASE_URL}/latest.json" --output "$RUNNER_TEMP/public-latest.json"
+          diff -u <(jq -S . "$RUNNER_TEMP/latest.json") <(jq -S . "$RUNNER_TEMP/public-latest.json")
+          PUBLIC_APK_URL="$(jq -r .apkUrl "$RUNNER_TEMP/public-latest.json")"
+          curl --fail --silent --show-error --location "$PUBLIC_APK_URL" --output "$RUNNER_TEMP/final-public.apk"
+          echo "${SHA256}  $RUNNER_TEMP/final-public.apk" | sha256sum --check
 
       - name: Remove signing material
         if: always()
