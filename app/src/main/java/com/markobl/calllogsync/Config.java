@@ -66,6 +66,7 @@ public class Config {
 
     public static Config load(@NonNull Context context)
     {
+        boolean shouldSave = false;
         try {
             SharedPreferences settings = getSharedPreferences(context);
             if (settings.contains("config")) {
@@ -73,17 +74,31 @@ public class Config {
                 Gson gson = new Gson();
                 Config config = gson.fromJson(configJson, Config.class);
 
-                if (config.endpoint == null)
+                if (config.endpoint == null) {
                     config.endpoint = getDefaultEndpoint();
-                if (config.deviceName == null || config.deviceName.trim().isEmpty())
+                    shouldSave = true;
+                }
+                if (config.deviceName == null || config.deviceName.trim().isEmpty()) {
                     config.deviceName = Build.MODEL;
-                if(config.deviceToken == null || config.deviceToken.trim().isEmpty())
+                    shouldSave = true;
+                }
+                if(config.deviceToken == null || config.deviceToken.trim().isEmpty()) {
                     config.deviceToken = RandomString.getRandomString(32);
-                if(config.deviceNumber == null)
+                    shouldSave = true;
+                }
+                if(config.deviceNumber == null) {
                     config.deviceNumber = "";
+                    shouldSave = true;
+                }
 
-                if(config.additionalHeaders == null)
+                if(config.additionalHeaders == null) {
                     config.additionalHeaders = new HashMap<>();
+                    shouldSave = true;
+                }
+
+                if (shouldSave) {
+                    config.save(context);
+                }
 
                 return config;
             }
@@ -92,7 +107,9 @@ public class Config {
             Log.e("CONFIG", "" + ex);
         }
 
-        return newConfig(context);
+        Config config = newConfig(context);
+        config.save(context);
+        return config;
     }
 
     public boolean save(@NonNull Context context)

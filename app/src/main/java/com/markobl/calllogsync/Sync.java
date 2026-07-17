@@ -101,7 +101,12 @@ public class Sync {
 
     static SyncResult testEndpointBlocking(@NonNull final Config config) {
         config.additionalHeaders.put("Test-Run", "1");
-        return postPayload(config, new JSONArray(), 0L, 0);
+        try {
+            return postPayload(config, new JSONArray(), 0L, 0);
+        }
+        finally {
+            config.additionalHeaders.remove("Test-Run");
+        }
     }
 
     static boolean isAllowedEndpoint(URL endpoint, boolean allowInsecureEndpoints) {
