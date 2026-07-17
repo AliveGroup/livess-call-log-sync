@@ -116,7 +116,13 @@ jobs:
             exit 1
           fi
           "$BUILD_TOOLS/apksigner" verify "$APK"
-          ACTUAL_CERT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr '[:upper:]' '[:lower:]')"
+          "$BUILD_TOOLS/apksigner" verify --print-certs-pem "$APK" > "$RUNNER_TEMP/signer-report.txt"
+          awk '/-----BEGIN CERTIFICATE-----/{capture=1} capture{print} /-----END CERTIFICATE-----/{exit}' \
+            "$RUNNER_TEMP/signer-report.txt" > "$RUNNER_TEMP/signer.pem"
+          CERT_FINGERPRINT="$(openssl x509 -in "$RUNNER_TEMP/signer.pem" -noout -fingerprint -sha256)"
+          ACTUAL_CERT="${CERT_FINGERPRINT#*=}"
+          ACTUAL_CERT="${ACTUAL_CERT//:/}"
+          ACTUAL_CERT="${ACTUAL_CERT,,}"
           if [[ -z "$ACTUAL_CERT" ]]; then
             echo "::error::apksigner returned no SHA-256 certificate digest"
             exit 1
