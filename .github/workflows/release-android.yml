@@ -106,11 +106,11 @@ jobs:
           APK_URL="${BASE_URL}/${ARTIFACT_KEY}"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
 
-          PACKAGE_LINE="$("$BUILD_TOOLS/aapt" dump badging "$APK" | head -1)"
+          PACKAGE_LINE="$("$BUILD_TOOLS/aapt" dump badging "$APK" | sed -n '1p')"
           [[ "$PACKAGE_LINE" == *"name='br.com.livess.callsync'"* ]]
           [[ "$PACKAGE_LINE" == *"versionName='${RELEASE_VERSION}'"* ]]
           "$BUILD_TOOLS/apksigner" verify "$APK"
-          ACTUAL_CERT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_CERT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr '[:upper:]' '[:lower:]')"
           [[ "$ACTUAL_CERT" == "$RELEASE_CERT_SHA256" ]]
 
           SHA256="$(sha256sum "$APK" | awk '{print $1}')"
