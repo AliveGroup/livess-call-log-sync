@@ -16,7 +16,6 @@ concurrency:
 
 env:
   AWS_REGION: sa-east-1
-  RELEASE_VERSION: 1.0.1
   RELEASE_CERT_SHA256: 159f2ee5673b5be69cd8871ac2de81d5d175903cad4eb8ef1f73787f5cc7d19c
 
 jobs:
@@ -47,6 +46,13 @@ jobs:
           KEY_ALIAS: ${{ secrets.LIVESS_ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.LIVESS_ANDROID_KEY_PASSWORD }}
         run: |
+          RELEASE_VERSION="$(grep -m1 'versionName' app/build.gradle | sed -E 's/.*\"([^\"]+)\".*/\\1/')"
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "::error::Unable to read versionName from app/build.gradle"
+            exit 1
+          fi
+          echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+
           set -euo pipefail
           for value in ROLE_ARN BUCKET DISTRIBUTION_ID BASE_URL KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!value}" ]; then
@@ -94,6 +100,7 @@ jobs:
       - name: Publish immutable APK and latest manifest
         shell: bash
         env:
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           BUCKET: ${{ vars.AWS_ANDROID_RELEASE_BUCKET }}
           DISTRIBUTION_ID: ${{ vars.AWS_ANDROID_RELEASE_DISTRIBUTION_ID }}
           BASE_URL: ${{ vars.AWS_ANDROID_RELEASE_BASE_URL }}
