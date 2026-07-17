@@ -20,6 +20,9 @@ import java.util.Map;
 
 public class Config {
 
+    static final String DEFAULT_ENDPOINT =
+            "https://api.livess.com.br/webhooks/inbound/call-tracking";
+
     public URL endpoint;
 
     public String deviceName;
@@ -32,11 +35,21 @@ public class Config {
     @SuppressLint("HardwareIds")
     public static Config newConfig(Context context) {
         Config config = new Config();
+        config.endpoint = getDefaultEndpoint();
         config.deviceName = Build.MODEL;
         config.deviceToken = RandomString.getRandomString(32);
         config.deviceNumber = "";
 
         return  config;
+    }
+
+    private static URL getDefaultEndpoint() {
+        try {
+            return new URL(DEFAULT_ENDPOINT);
+        } catch (Exception ex) {
+            Log.e("CONFIG", "Invalid built-in endpoint", ex);
+            return null;
+        }
     }
 
     public static SharedPreferences getSharedPreferences(Context context)
@@ -60,6 +73,8 @@ public class Config {
                 Gson gson = new Gson();
                 Config config = gson.fromJson(configJson, Config.class);
 
+                if (config.endpoint == null)
+                    config.endpoint = getDefaultEndpoint();
                 if (config.deviceName == null || config.deviceName.trim().isEmpty())
                     config.deviceName = Build.MODEL;
                 if(config.deviceToken == null || config.deviceToken.trim().isEmpty())
@@ -107,12 +122,12 @@ public class Config {
         return  settings.getLong("lastcalllogid", -1);
     }
 
-    public static void setLastCallLogId(Context context, long lastCallLogId)
+    public static boolean setLastCallLogId(Context context, long lastCallLogId)
     {
         SharedPreferences settings = getSharedPreferences(context);
         SharedPreferences.Editor editor = settings.edit();
 
         editor.putLong("lastcalllogid", lastCallLogId);
-        editor.apply();
+        return editor.commit();
     }
 }

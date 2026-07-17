@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.1 - Livess pilot cutover
+- Padronizou o nome e toda a interface como Livess Sync em português
+- Adicionou uma variante Pilot assinada para testes exclusivos no ambiente local
+- Impediu o reenvio da última chamada histórica na primeira ativação
+
+## 1.0.0 - Livess official line
+- Adopted the AliveGroup-owned application id `br.com.livess.callsync`
+- Added durable automatic Sync reconciliation after boot and app updates
+- Fixed Worker completion, retry handling and call-log cursor persistence
+- Added isolated debug builds for device UAT
+- Added governed release signing through injected secrets
+- Updated Livess branding, source attribution and privacy disclosure
+
 ## 1.0.5
 - New option to lock the settings
 - Warning if app hibernation is active

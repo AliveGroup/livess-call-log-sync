@@ -1,54 +1,54 @@
 <resources>
-    <string name="app_name">Call Log Sync</string>
-    <string name="action_settings">Settings</string>
-    <string name="action_log">Sync Log</string>
-    <string name="action_about">About</string>
-    <string name="sync_active">Sync Active</string>
-    <string name="last_sync">Last sync: %1$s at %2$s</string>
-    <string name="sync_info">Go to settings, setup an remote endpoint for the call log and enable sync.</string>
-    <string name="sync_button">Sync NOW</string>
+    <string name="app_name">Livess Sync</string>
+    <string name="action_settings">Configurações</string>
+    <string name="action_log">Histórico de sincronização</string>
+    <string name="action_about">Sobre</string>
+    <string name="sync_active">Livess Sync ativo</string>
+    <string name="last_sync">Última sincronização: %1$s às %2$s</string>
+    <string name="sync_info">Acesse as configurações e ative o Livess Sync.</string>
+    <string name="sync_button">SINCRONIZAR AGORA</string>
 
-    <string name="main_fragment_label">Call Log Sync</string>
-    <string name="settings_fragment_label">Settings</string>
-    <string name="log_fragment_label">Sync Log</string>
+    <string name="main_fragment_label">Livess Sync</string>
+    <string name="settings_fragment_label">Configurações</string>
+    <string name="log_fragment_label">Histórico de sincronização</string>
 
-    <string name="call_log_required">Access to call log required</string>
-    <string name="sync_success">Synced %1$d entries from the call log.</string>
-    <string name="sync_nothing">Sync: no new entries in the call log.</string>
-    <string name="sync_failure">Sync failed: %1$s (%2$d).</string>
-    <string name="sync_exception">Sync exception: %1$s</string>
+    <string name="call_log_required">Permita o acesso ao registro de chamadas</string>
+    <string name="sync_success">%1$d chamadas sincronizadas.</string>
+    <string name="sync_nothing">Nenhuma chamada nova para sincronizar.</string>
+    <string name="sync_failure">Falha na sincronização: %1$s (%2$d).</string>
+    <string name="sync_exception">Erro na sincronização: %1$s</string>
 
-    <string name="sync_header">Sync</string>
-    <string name="sync_alert_failed">Sync failure</string>
-    <string name="sync_alert_success">Sync success</string>
+    <string name="sync_header">Livess Sync</string>
+    <string name="sync_alert_failed">Falha na sincronização</string>
+    <string name="sync_alert_success">Sincronização concluída</string>
     <string name="ok">OK</string>
-    <string name="yes">Yes</string>
-    <string name="no">No</string>
+    <string name="yes">Sim</string>
+    <string name="no">Não</string>
 
-    <string name="setup_title">Setup remote endpoint</string>
-    <string name="setup_info">Learn to setup a remote endpoint</string>
-    <string name="endpoint_title">Remote endpoint</string>
-    <string name="sync_title">Enable Sync</string>
-    <string name="invalid_endpoint">Invalid remote endpoint. Must start with http(s)://</string>
-    <string name="no_endpoint">No remote endpoint set</string>
-    <string name="testing_endpoint">Sending random call log to remote endpoint</string>
-    <string name="test_title">Test remote endpoint</string>
-    <string name="test_info">Send random call log to remote endpoint</string>
+    <string name="setup_title">Configurar integração</string>
+    <string name="setup_info">Saiba como configurar a integração do Livess Sync</string>
+    <string name="endpoint_title">Servidor Livess</string>
+    <string name="sync_title">Ativar Livess Sync</string>
+    <string name="invalid_endpoint">Endereço inválido. Ele deve começar com http:// ou https://</string>
+    <string name="no_endpoint">Servidor Livess não configurado</string>
+    <string name="testing_endpoint">Enviando uma chamada de teste</string>
+    <string name="test_title">Testar conexão</string>
+    <string name="test_info">Enviar uma chamada de teste para o Livess</string>
 
-    <string name="device_header">Phone</string>
-    <string name="name_title">Phone Name</string>
-    <string name="token_title">Phone Token</string>
-    <string name="number_title">Phone Number</string>
-    <string name="token_copied">Phone Token copied to clipboard</string>
-    <string name="last_id_title">Last transmitted call log id</string>
+    <string name="device_header">Aparelho</string>
+    <string name="name_title">Nome do aparelho</string>
+    <string name="token_title">Token do aparelho</string>
+    <string name="number_title">Número do telefone</string>
+    <string name="token_copied">Token do aparelho copiado</string>
+    <string name="last_id_title">ID da última chamada transmitida</string>
 
-    <string name="reset_header">Settings</string>
-    <string name="device_lock">Lock Settings</string>
-    <string name="device_lock_info">All settings are locked and can no longer be changed. Only a reset is still possible.</string>
-    <string name="device_reset">Reset Settings</string>
-    <string name="reset_info">This will reset all sync settings to their initial values. New device token will be generated.</string>
-    <string name="reset_info2">Are you sure you want to reset all sync settings?</string>
+    <string name="reset_header">Segurança</string>
+    <string name="device_lock">Bloquear configurações</string>
+    <string name="device_lock_info">Impede alterações nas configurações. Depois do bloqueio, apenas a restauração continuará disponível.</string>
+    <string name="device_reset">Restaurar configurações</string>
+    <string name="reset_info">Restaura as configurações iniciais e gera um novo token para o aparelho.</string>
+    <string name="reset_info2">Deseja realmente restaurar todas as configurações?</string>
 
-    <string name="batteryopt">Please disable battery optimization.</string>
-    <string name="restrictopt">Please disable "Pause app activity if unused".</string>
+    <string name="batteryopt">Permita que o Livess Sync funcione sem restrição de bateria.</string>
+    <string name="restrictopt">Desative a opção de remover permissões quando o app não for usado.</string>
 </resources>
