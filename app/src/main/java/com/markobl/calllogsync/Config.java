@@ -8,12 +8,15 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.provider.Settings;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 
 import com.google.gson.Gson;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,10 +40,34 @@ public class Config {
         Config config = new Config();
         config.endpoint = getDefaultEndpoint();
         config.deviceName = Build.MODEL;
-        config.deviceToken = RandomString.getRandomString(32);
+        config.deviceToken = getStableDeviceToken(context);
         config.deviceNumber = "";
 
         return  config;
+    }
+
+    private static String getStableDeviceToken(Context context) {
+        try {
+            String androidId = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+            if (androidId == null || androidId.trim().isEmpty()) {
+                return RandomString.getRandomString(32);
+            }
+
+            String input = String.format("%s|%s|%s", context.getPackageName(), Build.SERIAL, androidId);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] raw = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+
+            StringBuilder token = new StringBuilder();
+            for (byte b : raw) {
+                token.append(String.format("%02x", b));
+            }
+
+            return token.substring(0, 32);
+        }
+        catch (Exception ex) {
+            Log.e("CONFIG", "Failed to derive stable device token; falling back to random", ex);
+            return RandomString.getRandomString(32);
+        }
     }
 
     private static URL getDefaultEndpoint() {
@@ -82,8 +109,8 @@ public class Config {
                     config.deviceName = Build.MODEL;
                     shouldSave = true;
                 }
-                if(config.deviceToken == null || config.deviceToken.trim().isEmpty()) {
-                    config.deviceToken = RandomString.getRandomString(32);
+                if (config.deviceToken == null || config.deviceToken.trim().isEmpty()) {
+                    config.deviceToken = getStableDeviceToken(context);
                     shouldSave = true;
                 }
                 if(config.deviceNumber == null) {
