@@ -2,6 +2,7 @@ package com.markobl.calllogsync;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -61,5 +62,20 @@ public class SyncPersistenceTest {
         Config loaded = Config.load(context);
 
         assertEquals(Config.DEFAULT_ENDPOINT, loaded.endpoint.toString());
+    }
+
+    @Test
+    public void missingTokenIsGeneratedAndPersisted() {
+        Config config = Config.newConfig(context);
+        config.deviceToken = "";
+        assertTrue(config.save(context));
+
+        Config loaded = Config.load(context);
+        String firstToken = loaded.deviceToken;
+        assertNotNull(firstToken);
+        assertTrue(!firstToken.trim().isEmpty());
+
+        Config loadedAgain = Config.load(context);
+        assertEquals(firstToken, loadedAgain.deviceToken);
     }
 }
